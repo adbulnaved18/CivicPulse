@@ -1,52 +1,38 @@
 import sqlite3
-
-DB_PATH = "database/civicpulse.db"
-
-
-def get_db():
-    return sqlite3.connect(DB_PATH)
+from pathlib import Path
 
 
-def init_db():
-    db = get_db()
-
-    with open("database/schema.sql", "r") as file:
-        db.executescript(file.read())
-
-    db.commit()
-    db.close()
+BASE_DIR = Path(__file__).resolve().parents[3]
+DATABASE_PATH = BASE_DIR / "database" / "civicpulse.db"
+SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
 
 
-def add_status_column():
-    db = get_db()
-    cursor = db.cursor()
+def get_connection() -> sqlite3.Connection:
+    """
+    Create and return a SQLite connection.
+
+    Foreign-key enforcement is enabled for every connection.
+    """
+    connection = sqlite3.connect(DATABASE_PATH)
+
+    connection.row_factory = sqlite3.Row
+
+    connection.execute("PRAGMA foreign_keys = ON")
+
+    return connection
+
+
+def initialize_database() -> None:
+    """
+    Create the database tables and indexes if they do not exist.
+    """
+    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    connection = get_connection()
 
     try:
-        cursor.execute(
-            "ALTER TABLE complaints ADD COLUMN status TEXT DEFAULT 'Pending'"
-        )
-        db.commit()
-    except sqlite3.OperationalError:
-        pass
-
-    db.close()
-
-
-def init_votes_table():
-    db = get_db()
-    cursor = db.cursor()
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS complaint_votes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            complaint_id INTEGER NOT NULL,
-            voter_id TEXT NOT NULL,
-            UNIQUE(complaint_id, voter_id),
-            FOREIGN KEY (complaint_id) REFERENCES complaints(id)
-        )
-        """
-    )
-
-    db.commit()
-    db.close()
+        schema = SCHEMA_PATH.read_text(encoding="utf-8")
+        connection.executescript(schema)
+        connection.commit()
+    finally:
+        connection.close()

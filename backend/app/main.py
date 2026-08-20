@@ -1,8 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.routes.complaints import router as complaints_router
+
+from app.routes.complaints import router as complaints_router
+from app.services.database import initialize_database
+
 
 app = FastAPI(title="CivicPulse API")
+
+initialize_database()
 
 app.add_middleware(
     CORSMiddleware,
